@@ -1,65 +1,130 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from 'react';
+import api from './api';
+import toast from 'react-hot-toast';
+import { Wallet,ArrowUpCircle, ArrowDownCircle, Activity} from 'lucide-react';
+
+type Transaction = {
+  id: string;
+  text: string;
+  amount: number;
+  created_at: string;
+};
 
 export default function Home() {
+
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+
+  const getTransactions = async () => {
+    try {
+      const res = await api.get<Transaction[]>('transactions/');
+      setTransactions(res.data);
+      toast.success('Transactions chargées avec succès!');
+    } catch (error) {
+      toast.error('Erreur de chargement des transactions');
+      console.error("Misy zavatra tsy milamina: " + error);
+    }
+  };
+
+  useEffect(() => {
+    getTransactions();
+  }, []);
+
+  const amount = transactions.map(t => Number(t.amount) || 0);
+
+  const balance = amount.reduce((acc, val) => acc + val, 0);
+
+  const income = amount
+    .filter(a => a > 0)
+    .reduce((acc, val) => acc + val, 0);
+
+  const expense = amount
+    .filter(a => a < 0)
+    .reduce((acc, val) => acc + val, 0);
+
+  const ratio = income > 0 ? Math.min(Math.abs(expense) / income * 100, 100) : 0;
+
+  const formDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+
+    <div className='w-2/3 flex flex-col gap-4'>
+      <div className="flex justify-between rounded-2xl border-2 border-warning/10 
+      border-dashed bg-warning/5 p-5">
+      
+      <div className="flex flex-col gap-1">
+        <div className='badge badge-soft'>
+          
+            <Wallet className='w-4 h-4'/>
+          Votre solde
+          
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className="state-value">
+          {balance.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} Ar
         </div>
-      </main>
+
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <div className='badge badge-soft badge-success'>
+          
+            <ArrowUpCircle className='w-4 h-4'/>
+          Revenus
+          
+        </div>
+
+        <div className="state-value">
+          {income.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} Ar
+        </div>
+
+      </div>
+
+    <div className="flex flex-col gap-1">
+        <div className='badge badge-soft badge-error'>
+          
+            <ArrowDownCircle className='w-4 h-4'/>
+          Dépenses
+          
+        </div>
+
+        <div className="state-value">
+          {expense.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} Ar
+        </div>
+
+      </div>
+
+      </div> 
+
+    
+      <div className="rounded-2xl border-2 border-warning/10 border-dashed bg-warning/5 p-5">
+        <div className="flex justify-between items-center mb-1">
+          
+            <div className="badge badge-soft badge-warning gap-1">
+              <Activity className='w-4 h-4'/>
+              Dé pense vs Revenus
+            </div>
+          
+           <div>
+            {ratio.toFixed(0)}% 
+           </div>
+        </div>
+
+        <progress className='progress progress-warning w-full' value={ratio} max="100">
+
+        </progress>
+
+        
+          
+        </div>
     </div>
   );
 }
