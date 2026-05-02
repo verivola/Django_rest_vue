@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import api from './api';
 import toast from 'react-hot-toast';
-import { Wallet,ArrowUpCircle, ArrowDownCircle, Activity, TrendingUp, TrendingDown, Trash, Brush, CircleSlash, PlusCircle} from 'lucide-react';
+import { Wallet,ArrowUpCircle, ArrowDownCircle, Activity, TrendingUp, TrendingDown, Trash, Brush, CircleSlash, PlusCircle, Search} from 'lucide-react';
 
 type Transaction = {
   id: string;
@@ -16,9 +16,22 @@ export default function Home() {
 //  Définir l'état pour les transactions
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
+ const [search, setSearch] = useState("");
+
+const filteredTransactions = transactions.filter((t) =>
+  (t.text ?? "")
+    .toLowerCase()
+    .trim()
+    .includes(search.toLowerCase().trim())
+);
+
   // 
   const [text , setText] = useState('');
   const [amount , setAmount] = useState(0);
+  // const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState<"add" | "edit">("add");
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 // Récuperer les élément de l'api
   const getTransactions = async () => {
     try {
@@ -30,6 +43,25 @@ export default function Home() {
       console.error("Misy zavatra tsy milamina: " + error);
     }
   };
+
+  const openAddModal = () => {
+  setMode("add");
+  setEditingTransaction(null);
+  setText("");
+  setAmount(0);
+
+  (document.getElementById('transaction_modal') as HTMLDialogElement).showModal();
+};
+
+  const openEditModal = (transaction: Transaction) => {
+  setEditingTransaction(transaction);
+  setText(transaction.text);
+  setAmount(transaction.amount);
+  setMode("edit");  
+
+
+  (document.getElementById('transaction_modal') as HTMLDialogElement).showModal();
+};
 
 // Supprimer une transaction
 
@@ -44,7 +76,58 @@ export default function Home() {
     }
   };
 
+  const addTransaction = async () => {
+    if(!text || amount === 0 || isNaN(amount) || amount === null){
+      toast.error('Veuillez entrer une texte et un montant valide');
+      return;
+    }
+    setLoading(true);
+    try {
+      await api.post('transactions/', { text, amount });  
+      getTransactions(); // Recharger la liste des transactions
 
+      const modal = document.getElementById('transaction_modal') as HTMLDialogElement;
+      if (modal) {
+        modal.close(); // Fermer le modal après l'ajout
+      }
+            toast.success('Transaction ajoutée avec succès!');
+        setText('');
+        setAmount('' as unknown as number);
+
+
+    } catch (error) {
+      toast.error('Erreur d\'ajout de la transaction');
+      console.error("Misy zavatra tsy milamina: " + error);
+    }finally{
+      setLoading(false);
+    }
+  };
+
+ const updateTransaction = async (id: string, updatedData: Partial<Transaction>) => {
+  setLoading(true);
+
+  try {
+    await api.put(`transactions/${id}/`, updatedData);
+
+    toast.success('Transaction mise à jour avec succès!');
+
+    await getTransactions();
+
+    setText('');
+    setAmount(0);
+    setEditingTransaction(null);
+
+    const modal = document.getElementById('transaction_modal') as HTMLDialogElement;    
+    modal?.close();
+
+  } catch (error) {
+    toast.error('Erreur de mise à jour de la transaction');
+    console.error(error);
+
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     getTransactions();
@@ -75,9 +158,62 @@ export default function Home() {
     });
   };
 
+
+
   return (
 
+    
+    
     <div className='w-2/3 flex flex-col gap-4'>
+      
+      {/* commence eto ny barre de recherche */}
+      {/* <label className="input validator">
+  <svg className="h-[1em] opacity-50" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <g
+      strokeLinejoin="round"
+      strokeLinecap="round"
+      strokeWidth="2.5"
+      fill="none"
+      stroke="currentColor"
+    >
+      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+      <circle cx="12" cy="7" r="4"></circle>
+    </g>
+  </svg>
+  <input
+    type="text"
+    value={search}
+    onChange={(e)=> setSearch(e.target.value)}
+    placeholder="Search"
+    // pattern="[A-Za-z][A-Za-z0-9\-]*"
+   
+    title="Only letters, numbers or dash"
+  />
+</label> */}
+<label className="input input-bordered flex items-center gap-2">
+  <Search className="w-4 h-4 opacity-60" />
+
+  <input
+    type="text"
+    value={search}
+    onChange={(e) => setSearch(e.target.value)}
+    placeholder="Rechercher une transaction..."
+    className="grow"
+  />
+
+  {search && (
+    <button onClick={() => setSearch("")} className="text-gray-400">
+      ✕
+    </button>
+  )}
+</label>
+<p className="validator-hint">
+  Must be 3 to 30 characters
+  <br />containing only letters, numbers or dash
+</p>
+
+
+{/* ary mifarana eto ilay izi */}
       <div className="flex justify-between rounded-2xl border-2 border-warning/10 
       border-dashed bg-warning/5 p-5">
       
@@ -147,13 +283,20 @@ export default function Home() {
         </div>
 
         {/* modal */}
+
         <button className="btn btn-primary  " 
-        onClick={()=>(document.getElementById('my_modal_3') as HTMLDialogElement).showModal()}>
+        onClick={() => {
+                setMode("add");              // ⭐ IMPORTANT
+                setEditingTransaction(null); // reset edit
+                setText("");
+                setAmount(0);
+
+                (document.getElementById('transaction_modal') as HTMLDialogElement).showModal();
+              }}>
           <PlusCircle className='w-4 h-4'/>
           Ajouter une transaction
           </button>
         
-
          <div className="overflow-x-auto rounded-box border border-base-content/5 bg-base-100">
         <table className="table">
           {/* <!-- head --> */}
@@ -167,98 +310,133 @@ export default function Home() {
             </tr>
           </thead>
           
-          <tbody>
+<tbody>
+  {filteredTransactions.length === 0 ? (
+    <tr>
+      <td colSpan={5} className="text-center py-6">
+        <div className="flex flex-col items-center gap-3 opacity-70">
+          <CircleSlash className="w-8 h-8 text-gray-400 animate-pulse" />
+          Aucune donnée
+        </div>
+      </td>
+    </tr>
+  ) : (
+    filteredTransactions.map((t, index) => (
+      <tr key={t.id}>
+        <th>{index + 1}</th>
+
+        <td>{t.text}</td>
+
+        <td className="flex items-center gap-2">
+          {t.amount > 0 ? (
+            <TrendingUp className="text-success w-6 h-6" />
+          ) : (
+            <TrendingDown className="text-error w-6 h-6" />
+          )}
+
+          {`${t.amount > 0 ? '+' : ''}${Math.abs(t.amount).toLocaleString(
+            'fr-FR',
             {
-              // transactions.length === 0 ? (
-              //   <tr>
-              //     <td colSpan={5} className='text-center py-4'>
-              //       <div className="flex flex-col items-center gap-3 opacity-70">
-              //       <span className='text-4xl'></span>
-              //       <p>Aucune transaction disponible</p>
-              //       </div>
-              //     </td>
-              //   </tr>
-              transactions.length === 0 ? (
-            <tr>
-              <td colSpan={5} className="text-center py-6">
-                <div className="flex flex-col items-center gap-3 opacity-70">
-
-                  {/* Icône animée */}
-                  <span className="loading loading-spinner loading-lg text-primary"></span>
-
-                  <span className="text-rotate text-4xl leading-loose">
-                    <span className="justify-items-center">
-                    
-                      <span className='flex items-center gap-2'><CircleSlash className="w-8  h-8 text-gray-400 animate-pulse" />Aucune</span>
-                      <span className="flex items-center gap-2 justify-center">🌎 donnée</span>
-                      
-                     
-                    </span>
-                  </span>
-
-                </div>
-              </td>
-            </tr>
-              ):(
-                  transactions.map((t, index) => (
-              <tr key={t.id}>
-                <th>{index + 1}</th>
-                <td>{t.text}</td>
-                <td className='text-semibold flex items-center gap-2'>{t.amount > 0 ? (
-                  <TrendingUp className='text-success w-6 h-6'/>
-                ) : (
-                  <TrendingDown className='text-error w-6 h-6'/>
-                )}
-
-                {`${t.amount > 0 ? '+' : t.amount < 0 ? '-' : ''}${Math.abs(t.amount).toLocaleString('fr-FR', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })} Ar`}
-                
-                
-                </td>
-                <td>{formDate(t.created_at)}</td>
-                <td>
-                  <button className="btn btn-sm btn-error btn-soft tooltip" onClick={() => deleteTransaction(t.id)} data-tip="Supprimer">
-                    <Trash className='w-4 h-4'/>
-                  </button>
-                </td>
-              </tr>
-            ))
-              )
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
             }
-       
-           
-           
-          </tbody>
+          )} Ar`}
+        </td>
+
+        <td>{formDate(t.created_at)}</td>
+
+        <td>
+          <button
+            className="btn btn-sm btn-error btn-soft"
+            onClick={() => deleteTransaction(t.id)}
+          >
+            <Trash className="w-4 h-4" />
+          </button>
+
+          <button
+            className="btn btn-sm btn-warning btn-soft"
+            onClick={() => openEditModal(t)}
+          >
+            <Brush className="w-4 h-4" />
+          </button>
+        </td>
+      </tr>
+    ))
+  )}
+</tbody>
         </table>
 </div>
 
 
-<dialog id="my_modal_3" className="modal backdrop-blur-sm">
-          <div className="modal-box border-2 border-warning/10 border-dashed">
-            <form method="dialog">
-              {/* if there is a bu  tton in form, it will close the modal */}
-              <button className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
-            </form>
-            <h3 className="font-bold text-lg mb-4">Ajouter une transaction</h3>
-             <div className='flex flex-col gap-4 mt-4'>
+<dialog id="transaction_modal" className="modal backdrop-blur-sm">
+  <div className="modal-box border-2 border-warning/10 border-dashed">
 
-               <div className="flex flex-col gap-2">
-                  <label  className='label'>Texte</label>
-                  <input 
-                  type="text" 
-                  name="text  "
-                  value={text}
-                  onChange={(e)=> setText(e.target.value)}
-                  placeholder='Entreez le text'
-                  className='Input w-full'
-                   />
-               </div>
-               
-             </div>
-          </div>
-        </dialog>
+    <form method="dialog">
+      <button className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+        ✕
+      </button>
+    </form>
+
+    {/* TITLE dynamique */}
+    <h3 className="font-bold text-lg mb-4">
+      {mode === "edit" ? "Modifier une transaction" : "Ajouter une transaction"}
+    </h3>
+
+    <div className="flex flex-col gap-4 mt-4">
+
+      {/* TEXT */}
+      <div className="flex flex-col gap-2">
+        <label className="label text-emerald-500">Texte</label>
+        <input
+          type="text"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          className="Input w-full"
+        />
+      </div>
+
+      {/* AMOUNT */}
+      <div className="flex flex-col gap-2">
+        <label className="label text-emerald-500">Montant</label>
+        <input
+          type="number"
+          value={amount}
+          onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
+          className="Input w-full"
+        />
+      </div>
+
+      {/* BUTTON */}
+      <button
+        className="btn btn-warning w-full"
+        onClick={async () => {
+          if (mode === "add") {
+            await addTransaction();
+          } else {
+            if (!editingTransaction) return;
+
+            await updateTransaction(editingTransaction.id, {
+              text,
+              amount,
+            });
+
+            setEditingTransaction(null);
+          }
+
+          (document.getElementById('transaction_modal') as HTMLDialogElement).close();
+        }}
+      >
+        <PlusCircle className="w-4 h-4" />
+
+        {mode === "edit" ? "Modifier" : "Ajouter"}
+      </button>
+
+    </div>
+  </div>
+</dialog>
+
+
+
 
 
     </div>
