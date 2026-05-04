@@ -18,8 +18,9 @@ ALLOWED_HOSTS = []
 
 
 # Application definition
-
+ASGI_APPLICATION = "backend.asgi.application"
 INSTALLED_APPS = [
+    "daphne",
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -29,7 +30,9 @@ INSTALLED_APPS = [
 
     # 'api.apps.AppConfig',
     'rest_framework',
+    "channels",
     'api',
+        
 ]
 
 MIDDLEWARE = [
@@ -65,6 +68,8 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'backend.wsgi.application'
+
+
 
 
 # Database
@@ -113,3 +118,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}
