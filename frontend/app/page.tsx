@@ -104,7 +104,7 @@ export default function Home() {
   };
 
   const addTransaction = async () => {
-    if (!text.trim() || amount <= 0 || isNaN(amount)) {
+    if (!text.trim() || amount === 0 || isNaN(amount)) {
       toast.error('Veuillez entrer une description et un montant valide');
       return;
     }
@@ -587,6 +587,7 @@ const exportToPDF = async () => {
                 value={amount}
                 onChange={(e) => setAmount(parseFloat(e.target.value) || "" as any as number)}
                 className="input input-bordered w-full"
+                placeholder='ex: 1 000Ar'
               />
             </div>
 
