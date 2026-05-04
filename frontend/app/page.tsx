@@ -26,6 +26,8 @@ export default function Home() {
   const [mode, setMode] = useState<"add" | "edit">("add");
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // ==================== FONCTION FORMAT DATE ====================
   const formDate = (dateStr: string): string => {
@@ -41,6 +43,7 @@ export default function Home() {
 
   // ==================== FILTRE DE RECHERCHE INTELLIGENT ====================
   const normalizedSearch = search.toLowerCase().trim();
+  
 
   const filteredTransactions = transactions.filter((t) => {
     if (!normalizedSearch) return true;
@@ -219,6 +222,20 @@ export default function Home() {
     ), { duration: 5000 });
   };
 
+    // Pagination Logic
+  const totalFiltered = filteredTransactions.length;
+  const totalPages = Math.ceil(totalFiltered / itemsPerPage);
+
+  const paginatedTransactions = filteredTransactions.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Réinitialiser la page quand on recherche
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
   // ==================== RENDER ====================
   return (
     <div className="w-2/3 flex flex-col gap-4 mx-auto">
@@ -291,7 +308,7 @@ export default function Home() {
       </button>
 
       {/* Tableau */}
-      <div className="overflow-x-auto rounded-box border border-base-content/5 bg-base-100">
+      {/* <div className="overflow-x-auto rounded-box border border-base-content/5 bg-base-100">
         <table className="table">
           <thead>
             <tr>
@@ -351,7 +368,141 @@ export default function Home() {
             )}
           </tbody>
         </table>
+       
       </div>
+
+      
+        <div className="join align-middle justify-end-safe mt-1">
+          <button className="join-item btn">1</button>
+          <button className="join-item btn">2</button>
+          <button className="join-item btn btn-disabled">...</button>
+          <button className="join-item btn">99</button>
+          <button className="join-item btn">100</button>
+        </div> */}
+
+        {/* nouveau tableau */}
+
+          {/* Tableau */}
+      <div className="overflow-x-auto rounded-box border border-base-content/5 bg-base-100">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Description</th>
+              <th>Montant</th>
+              <th>Date</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paginatedTransactions.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="text-center py-8 opacity-70">
+                  <CircleSlash className="w-10 h-10 mx-auto mb-2" />
+                  Aucune transaction trouvée
+                </td>
+              </tr>
+            ) : (
+              paginatedTransactions.map((t, index) => (
+                <tr key={t.id}>
+                  <th>{(currentPage - 1) * itemsPerPage + index + 1}</th>
+                  <td className="font-medium">{t.text}</td>
+                  <td className="flex items-center gap-2 font-medium">
+                    {t.amount > 0 ? (
+                      <TrendingUp className="text-success" />
+                    ) : (
+                      <TrendingDown className="text-error" />
+                    )}
+                    {t.amount > 0 ? '+' : ''}{Math.abs(t.amount).toLocaleString('fr-FR')} Ar
+                  </td>
+                  <td>{formDate(t.created_at)}</td>
+                  <td>
+                    <div className="join">
+                      <button
+                        className="btn btn-sm btn-warning join-item"
+                        onClick={() => {
+                          setMode("edit");
+                          setEditingTransaction(t);
+                          setText(t.text);
+                          setAmount(t.amount);
+                          (document.getElementById('transaction_modal') as HTMLDialogElement)?.showModal();
+                        }}
+                      >
+                        <Brush className="w-4 h-4" />
+                      </button>
+                      <button
+                        className="btn btn-sm btn-error join-item"
+                        onClick={() => confirmDelete(t)}
+                      >
+                        <Trash className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* ==================== PAGINATION ==================== */}
+      {totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between mt-6 px-2">
+          <div className="text-sm text-green-500">
+            {totalFiltered} transaction{totalFiltered > 1 ? 's' : ''} • 
+            Page {currentPage} sur {totalPages}
+          </div>
+
+          <div className="join">
+            <button
+              className="join-item btn btn-sm"
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+            >
+              ← Précédent
+            </button>
+
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pageNum = currentPage <= 3 
+                ? i + 1 
+                : currentPage >= totalPages - 2 
+                ? totalPages - 4 + i 
+                : currentPage - 2 + i;
+
+              return (
+                <button
+                  key={pageNum}
+                  className={`join-item btn btn-sm ${currentPage === pageNum ? 'btn-active' : ''}`}
+                  onClick={() => setCurrentPage(pageNum)}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+
+            <button
+              className="join-item btn btn-sm"
+              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+            >
+              Suivant →
+            </button>
+          </div>
+
+          <select
+            className="select select-bordered select-sm"
+            value={itemsPerPage}
+            onChange={(e) => {
+              setItemsPerPage(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+          >
+            <option value={10}>10 par page</option>
+            <option value={15}>15 par page</option>
+         
+          </select>
+        </div>
+      )}
 
       {/* MODAL */}
       <dialog id="transaction_modal" className="modal">
