@@ -27,10 +27,56 @@ export default function Home() {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isConnected, setIsConnected] = useState(false);
 
-  // ==================== FILTERED LIST ====================
-  const filteredTransactions = transactions.filter((t) =>
-    (t.text ?? "").toLowerCase().trim().includes(search.toLowerCase().trim())
-  );
+  // ==================== FONCTION FORMAT DATE ====================
+  const formDate = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  // ==================== FILTRE DE RECHERCHE INTELLIGENT ====================
+  const normalizedSearch = search.toLowerCase().trim();
+
+  const filteredTransactions = transactions.filter((t) => {
+    if (!normalizedSearch) return true;
+
+    const term = normalizedSearch;
+
+    // Recherche dans le texte
+    if ((t.text ?? "").toLowerCase().includes(term)) return true;
+
+    // Recherche dans le montant
+    if (t.amount?.toString().includes(term) || 
+        t.amount?.toLocaleString('fr-FR').includes(term)) {
+      return true;
+    }
+
+    // Recherche dans la date
+    const date = new Date(t.created_at);
+    if (!isNaN(date.getTime())) {
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear().toString();
+
+      const dateFormats = [
+        formDate(t.created_at).toLowerCase(),
+        `${day}/${month}`,
+        `${day}/${month}/${year}`,
+        `${year}-${month}-${day}`,
+        date.toLocaleDateString('fr-FR', { month: 'long' }).toLowerCase(),
+        date.toLocaleDateString('fr-FR', { month: 'short' }).toLowerCase(),
+      ];
+
+      if (dateFormats.some(format => format.includes(term))) return true;
+    }
+
+    return false;
+  });
 
   // ==================== API FUNCTIONS ====================
   const getTransactions = async () => {
@@ -48,25 +94,24 @@ export default function Home() {
       await api.delete(`transactions/${id}/`);
       getTransactions();
     } catch (error) {
-      toast.error('Erreur de suppression');
+      toast.error('Erreur lors de la suppression');
     }
   };
 
   const addTransaction = async () => {
-    if (!text || amount === 0 || isNaN(amount)) {
-      toast.error('Veuillez entrer un texte et un montant valide');
+    if (!text.trim() || amount <= 0 || isNaN(amount)) {
+      toast.error('Veuillez entrer une description et un montant valide');
       return;
     }
 
     setLoading(true);
     try {
-      await api.post('transactions/', { text, amount });
+      await api.post('transactions/', { text: text.trim(), amount });
       getTransactions();
       closeModal();
-      setText('');
-      setAmount(0);
+      resetForm();
     } catch (error) {
-      toast.error("Erreur d'ajout");
+      toast.error("Erreur lors de l'ajout");
     } finally {
       setLoading(false);
     }
@@ -77,17 +122,21 @@ export default function Home() {
 
     setLoading(true);
     try {
-      await api.put(`transactions/${editingTransaction.id}/`, { text, amount });
+      await api.put(`transactions/${editingTransaction.id}/`, { text: text.trim(), amount });
       await getTransactions();
       closeModal();
-      setText('');
-      setAmount(0);
-      setEditingTransaction(null);
+      resetForm();
     } catch (error) {
-      toast.error('Erreur de mise à jour');
+      toast.error('Erreur lors de la modification');
     } finally {
       setLoading(false);
     }
+  };
+
+  const resetForm = () => {
+    setText('');
+    setAmount(0);
+    setEditingTransaction(null);
   };
 
   const closeModal = () => {
@@ -103,7 +152,7 @@ export default function Home() {
 
     socket.onopen = () => {
       setIsConnected(true);
-      toast.success("🔴 Connexion temps réel établie", { duration: 2000 });
+      toast.success("🔴 Temps réel activé", { duration: 1800 });
     };
 
     socket.onmessage = (event) => {
@@ -113,66 +162,48 @@ export default function Home() {
 
         switch (data.type) {
           case "created":
-            setTransactions((prev) => [data.transaction, ...prev]);
+            setTransactions(prev => [data.transaction, ...prev]);
             toast.success(`✅ ${data.transaction.text}`);
             break;
-
           case "updated":
-            setTransactions((prev) =>
-              prev.map((t) => (t.id === data.transaction.id ? data.transaction : t))
+            setTransactions(prev =>
+              prev.map(t => t.id === data.transaction.id ? data.transaction : t)
             );
             toast.success(`✏️ ${data.transaction.text}`);
             break;
-
           case "deleted":
-            setTransactions((prev) => prev.filter((t) => t.id !== data.id));
+            setTransactions(prev => prev.filter(t => t.id !== data.id));
             toast.error("🗑️ Transaction supprimée");
             break;
         }
       } catch (err) {
-        console.error("Erreur WebSocket parsing:", err);
+        console.error(err);
       }
     };
 
-    socket.onerror = () => {
-      toast.error("Erreur de connexion WebSocket");
-    };
-
+    socket.onerror = () => toast.error("Erreur WebSocket");
     socket.onclose = () => {
       setIsConnected(false);
       toast("Connexion temps réel fermée", { icon: '⚠️' });
     };
 
-    return () => {
-      socket.close();
-    };
+    return () => socket.close();
   }, []);
 
   // ==================== CALCULS ====================
-  const amounts = transactions.map((t) => Number(t.amount) || 0);
+  const amounts = transactions.map(t => Number(t.amount) || 0);
   const balance = amounts.reduce((acc, val) => acc + val, 0);
-  const income = amounts.filter((a) => a > 0).reduce((acc, val) => acc + val, 0);
-  const expense = amounts.filter((a) => a < 0).reduce((acc, val) => acc + val, 0);
+  const income = amounts.filter(a => a > 0).reduce((acc, val) => acc + val, 0);
+  const expense = amounts.filter(a => a < 0).reduce((acc, val) => acc + val, 0);
   const ratio = income > 0 ? Math.min((Math.abs(expense) / income) * 100, 100) : 0;
-
-  const formDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   const confirmDelete = (t: Transaction) => {
     toast((t_id) => (
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-3">
         <p>Supprimer <strong>{t.text}</strong> ?</p>
         <div className="flex justify-end gap-2">
           <button className="btn btn-xs btn-ghost" onClick={() => toast.dismiss(t_id.id)}>
-            Non
+            Annuler
           </button>
           <button
             className="btn btn-xs btn-error text-white"
@@ -181,7 +212,7 @@ export default function Home() {
               deleteTransaction(t.id);
             }}
           >
-            Oui
+            Supprimer
           </button>
         </div>
       </div>
@@ -190,7 +221,6 @@ export default function Home() {
 
   // ==================== RENDER ====================
   return (
-    // 
     <div className="w-2/3 flex flex-col gap-4 mx-auto">
       {/* Statut WebSocket */}
       <div className="flex justify-end">
@@ -206,11 +236,11 @@ export default function Home() {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Rechercher une transaction..."
+          placeholder="Rechercher (description, montant, date...)"
           className="grow"
         />
         {search && (
-          <button onClick={() => setSearch("")} className="text-gray-400">
+          <button onClick={() => setSearch("")} className="text-gray-400 hover:text-red-500">
             ✕
           </button>
         )}
@@ -230,7 +260,7 @@ export default function Home() {
 
         <div className="flex flex-col gap-1">
           <div className="badge badge-soft badge-error"><ArrowDownCircle className="w-4 h-4" /> Dépenses</div>
-          <div className="text-xl font-semibold text-error">{expense.toLocaleString('fr-FR')} Ar</div>
+          <div className="text-xl font-semibold text-error">{Math.abs(expense).toLocaleString('fr-FR')} Ar</div>
         </div>
       </div>
 
@@ -238,9 +268,9 @@ export default function Home() {
       <div className="rounded-2xl border-2 border-warning/10 border-dashed bg-warning/5 p-4">
         <div className="flex justify-between mb-2">
           <div className="badge badge-soft badge-warning gap-1">
-            <Activity className="w-4 h-4" /> Dépense vs Revenus
+            <Activity className="w-4 h-4" /> Ratio Dépenses/Revenus
           </div>
-          <div>{ratio.toFixed(0)}%</div>
+          <div className="font-medium">{ratio.toFixed(0)}%</div>
         </div>
         <progress className="progress progress-warning w-full" value={ratio} max="100" />
       </div>
@@ -275,8 +305,8 @@ export default function Home() {
           <tbody>
             {filteredTransactions.length === 0 ? (
               <tr>
-                <td colSpan={5} className="text-center py-8">
-                  <CircleSlash className="w-10 h-10 mx-auto text-gray-400 mb-2" />
+                <td colSpan={5} className="text-center py-8 opacity-70">
+                  <CircleSlash className="w-10 h-10 mx-auto mb-2" />
                   Aucune transaction trouvée
                 </td>
               </tr>
@@ -284,7 +314,7 @@ export default function Home() {
               filteredTransactions.map((t, index) => (
                 <tr key={t.id}>
                   <th>{index + 1}</th>
-                  <td>{t.text}</td>
+                  <td className="font-medium">{t.text}</td>
                   <td className="flex items-center gap-2 font-medium">
                     {t.amount > 0 ? (
                       <TrendingUp className="text-success" />
@@ -347,7 +377,7 @@ export default function Home() {
               <input
                 type="number"
                 value={amount}
-                onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
+                onChange={(e) => setAmount(parseFloat(e.target.value) || "" as any as number)}
                 className="input input-bordered w-full"
               />
             </div>
@@ -357,7 +387,7 @@ export default function Home() {
               onClick={mode === "add" ? addTransaction : updateTransaction}
               disabled={loading}
             >
-              {loading ? "Enregistrement..." : mode === "edit" ? "Modifier" : "Ajouter"}
+              {loading ? "Enregistrement en cours..." : mode === "edit" ? "Modifier" : "Ajouter"}
             </button>
           </div>
         </div>
