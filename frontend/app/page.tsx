@@ -325,7 +325,8 @@ const exportToPDF = async () => {
           <div className="text-xl font-semibold text-error">{Math.abs(expense).toLocaleString('fr-FR')} Ar</div>
         </div>
       </div>
-<div className='flex flex-row-reverse gap-2'>
+    
+    <div className='flex flex-row-reverse gap-2'>
         <button
           className="btn btn-error btn-sm place-self-start sm:btn-md"
           onClick={exportToPDF}
@@ -334,7 +335,7 @@ const exportToPDF = async () => {
         </button>
         {/* bouton export au dessus</div> */}
       <button
-        className="btn btn-primary place-self-start"
+        className="btn btn-primary place-self-starts"
         onClick={() => {
           setMode("add");
           setEditingTransaction(null);
@@ -562,7 +563,7 @@ const exportToPDF = async () => {
       )}
 
       {/* MODAL */}
-      <dialog id="transaction_modal" className="modal">
+      <dialog id="transaction_modal" className="modal backdrop-blur-sm">
         <div className="modal-box">
           <h3 className="font-bold text-lg mb-4">
             {mode === "edit" ? "Modifier la transaction" : "Nouvelle transaction"}
