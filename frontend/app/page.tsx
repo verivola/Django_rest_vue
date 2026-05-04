@@ -1,5 +1,5 @@
 "use client";
-
+import ExportButtons from './components/ExportButtons';
 import { useEffect, useState } from 'react';
 import api from './api';
 import toast from 'react-hot-toast';
@@ -8,6 +8,8 @@ import {
   TrendingUp, TrendingDown, Trash, Brush, CircleSlash, 
   PlusCircle, Search 
 } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';    
 
 type Transaction = {
   id: string;
@@ -222,6 +224,10 @@ export default function Home() {
     ), { duration: 5000 });
   };
 
+  //EXPORT PDF AND EXCEL
+
+  //FIN EXPORT PDF AND EXCEL
+
     // Pagination Logic
   const totalFiltered = filteredTransactions.length;
   const totalPages = Math.ceil(totalFiltered / itemsPerPage);
@@ -235,6 +241,45 @@ export default function Home() {
   useEffect(() => {
     setCurrentPage(1);
   }, [search]);
+
+  //Export PDF and Excel
+const exportToPDF = async () => {
+    const { jsPDF } = await import('jspdf');
+    const autoTable = (await import('jspdf-autotable')).default;
+
+    const doc = new jsPDF();
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.text("Rapport des Transactions", 14, 20);
+
+    doc.setFontSize(11);
+    doc.text(`Date: ${new Date().toLocaleDateString('fr-FR')}`, 14, 30);
+    doc.text(`Total des transactions: ${filteredTransactions.length}`, 14, 37);
+
+    const tableColumn = ["N°", "Description", "Montant (Ar)", "Date"];
+    const tableRows = filteredTransactions.map((t, index) => [
+      index + 1,
+      t.text,
+      t.amount > 0 ? `+${t.amount}` : t.amount,
+      formDate(t.created_at)
+    ]);
+
+    autoTable(doc, {
+      startY: 45,
+      head: [tableColumn],
+      body: tableRows,
+      theme: 'grid',
+      styles: { fontSize: 10 },
+      headStyles: { fillColor: [34, 197, 151] },
+    });
+
+    doc.save(`Rapport_Transactions_${new Date().toISOString().slice(0,10)}.pdf`);
+    toast.success("✅ Export PDF réussi !");
+  };
+
+
+  //FIn de export PDF and Excel
 
   // ==================== RENDER ====================
   return (
@@ -280,7 +325,30 @@ export default function Home() {
           <div className="text-xl font-semibold text-error">{Math.abs(expense).toLocaleString('fr-FR')} Ar</div>
         </div>
       </div>
+<div className='flex flex-row-reverse gap-2'>
+        <button
+          className="btn btn-error btn-sm place-self-start sm:btn-md"
+          onClick={exportToPDF}
+        >
+          📕 Exporter PDF
+        </button>
+        {/* bouton export au dessus</div> */}
+      <button
+        className="btn btn-primary place-self-start"
+        onClick={() => {
+          setMode("add");
+          setEditingTransaction(null);
+          setText("");
+          setAmount("" as any as number);
+          (document.getElementById('transaction_modal') as HTMLDialogElement)?.showModal();
+        }}
+      >
+        <PlusCircle className="w-4 h-4" />
+        Nouvelle transaction
 
+        
+      </button>
+      </div>
       {/* Ratio */}
       <div className="rounded-2xl border-2 border-warning/10 border-dashed bg-warning/5 p-4">
         <div className="flex justify-between mb-2">
@@ -293,19 +361,8 @@ export default function Home() {
       </div>
 
       {/* Bouton Ajouter */}
-      <button
-        className="btn btn-primary self-start"
-        onClick={() => {
-          setMode("add");
-          setEditingTransaction(null);
-          setText("");
-          setAmount("" as any as number);
-          (document.getElementById('transaction_modal') as HTMLDialogElement)?.showModal();
-        }}
-      >
-        <PlusCircle className="w-4 h-4" />
-        Nouvelle transaction
-      </button>
+      
+      
 
       {/* Tableau */}
       {/* <div className="overflow-x-auto rounded-box border border-base-content/5 bg-base-100">
@@ -454,7 +511,7 @@ export default function Home() {
           </div>
 
           <div className="join">
-            <button
+        <button
               className="join-item btn btn-sm"
               onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
