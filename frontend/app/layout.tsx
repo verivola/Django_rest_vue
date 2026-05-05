@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "react-hot-toast";
 
-
+import Navbar from "./components/Navbar";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -25,12 +25,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr" data-theme="night">
+    <html lang="fr" data-theme="halloween">
       <body className="min-h-full flex flex-col">
 
         <Toaster/>
+        <Navbar/>
 
         <div className="flex justify-center items-center min-h-screen my-5">
+          
           {children}
         </div>
 

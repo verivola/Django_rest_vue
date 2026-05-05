@@ -283,16 +283,12 @@ const exportToPDF = async () => {
 
   // ==================== RENDER ====================
   return (
-    <div className="w-2/3 flex flex-col gap-4 mx-auto">
+    <div className="w-2/3 flex flex-col gap-4 mx-auto ">
       {/* Statut WebSocket */}
-      <div className="flex justify-end">
-        <div className={`badge ${isConnected ? 'badge-success' : 'badge-error'} gap-2`}>
-          {isConnected ? '● En ligne' : '● Hors ligne'}
-        </div>
-      </div>
+      
 
       {/* Recherche */}
-      <label className="input input-bordered flex items-center gap-2">
+      <label className="input input-bordered flex items-center mt-20 gap-2">
         <Search className="w-4 h-4 opacity-60" />
         <input
           type="text"
@@ -307,6 +303,12 @@ const exportToPDF = async () => {
           </button>
         )}
       </label>
+
+      <div className="flex justify-center">
+        <div className={`badge ${isConnected ? 'badge-success' : 'badge-error'} gap-2`}>
+          {isConnected ? '● En ligne' : '● Hors ligne'}
+        </div>
+      </div>
 
       {/* Soldes */}
       <div className="flex justify-between rounded-2xl border-2 border-warning/10 border-dashed bg-warning/5 p-5">
@@ -349,6 +351,7 @@ const exportToPDF = async () => {
 
         
       </button>
+      
       </div>
       {/* Ratio */}
       <div className="rounded-2xl border-2 border-warning/10 border-dashed bg-warning/5 p-4">
